@@ -9,7 +9,7 @@ In addition, ```scikit-learn and nltk``` are also needed.
 
 # Data sets
 
-We provide both the data sets (profession, hobby, 20News) in the folder ```data/```
+We provide the data sets (profession, hobby, 20News) in the folder ```data/```
 
 # Quick start
 
