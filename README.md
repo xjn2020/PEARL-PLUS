@@ -3,9 +3,9 @@ Source code and data sets for the PEARL+: An LLM-Enhanced Biterm Topic Modeling 
 
 # Requirements
 
-Before running, you need to create an [unsloth]: https://github.com/unslothai/unsloth environment
+Before running, you need to create an [unsloth]: https://github.com/unslothai/unsloth environment.
 
-In addition, 
+In addition, ```scikit-learn and nltk``` are also needed.
 
 # Data sets
 
@@ -21,7 +21,7 @@ bash start.sh
 
 - ```gpu``` ➡ GPU to use; refer to nvidia-smi.
 - ```dataset``` ➡ Data set name.
-- ```model``` ➡  LLM model name: In this project, a **local** large language model is used and the path needs to be adjusted.
+- ```model``` ➡  LLM model name: In this project, a **local** large language model is used and the path needs to be adjusted in python file ```PEARL/keywords_sents_generate.py```.
 - ```K``` ➡ S, the number of selected words used by the LLM to synthesize texts.
 - ```gen_len``` ➡ L, the length of texts synthesized by the LLM.
 - ```part_of_dataset``` ➡ Synthesized quantity: the ratio of the number of synthesized texts to that of the original dataset.

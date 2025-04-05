@@ -1,29 +1,18 @@
-import json
-import pickle
-import sys
-
-import numpy as np
-import os
-from collections import defaultdict
 import argparse
-from collections import Counter
-
-import pandas as pd
+import os
+import numpy as np
+from collections import defaultdict
 from sklearn.metrics import f1_score
 
 
 def load_tlabels(data_dir):
-    # if 'profession' in data_dir or 'hobby' in data_dir:
-    with open(os.path.join(data_dir, 'labels.txt' if args.screen else 'labels_pearl.txt'), mode='r', encoding='utf-8') as label_file:
+    with open(os.path.join(data_dir, 'labels.txt'), mode='r', encoding='utf-8') as label_file:
         labels = list(map(lambda x: str(x.strip()), label_file.readlines()))
-    # else:
-    #     with open(os.path.join(data_dir, 'labels.txt'), mode='r', encoding='utf-8') as label_file:
-    #         labels = list(map(lambda x: str(x.strip()), label_file.readlines()))
     return labels
 
 
 def dcg_at_k(r, k, method=0):
-    r = np.asfarray(r)[:k]
+    r = np.asarray(r)[:k]
     if r.size:
         if method == 0:
             return r[0] + np.sum(r[1:] / np.log2(np.arange(2, r.size + 1)))
@@ -40,33 +29,9 @@ def ndcg_at_k(r, k, method=0):
         return 0.
     return dcg_at_k(r, k, method) / dcg_max
 
-# def precision_recall_f1(y_true, y_pred):
-#     counter_true = Counter(y_true)
-#     counter_pred = Counter(y_pred)
-#     counter_intersect = Counter([y_t for y_t, y_p in zip(y_true, y_pred) if y_t == y_p])
-#
-#     precision = {k: counter_intersect[k] / counter_pred[k] for k in counter_pred.keys()}
-#     recall = {k: counter_intersect[k] / counter_true[k] for k in counter_true.keys()}
-#
-#     f1 = {k: 2 * precision[k] * recall[k] / (precision[k] + recall[k]) for k in precision.keys()}
-#
-#     return precision, recall, f1
-#
-# def macro_micro_f1(y_true, y_pred):
-#     precision, recall, f1 = precision_recall_f1(y_true, y_pred)
-#     micro_precision = sum(precision.values()) / len(precision)
-#     micro_recall = sum(recall.values()) / len(recall)
-#     micro_f1 = 2 * micro_precision * micro_recall / (micro_precision + micro_recall)
-#     macro_f1 = sum(f1.values()) / len(f1)
-#     return macro_f1, micro_f1
-
 def main(dataset, class_num, E, data_form):
     class_num += 1
     gold_labels = load_tlabels('./data/' + dataset)
-    # if data_form is None:
-    #     s = 'info'
-    # else:
-    #     s = 'info_' + data_form
     if args.data_form is None:
         s = f'info_{args.niter}_{args.num_keywords}'
     else:
@@ -74,8 +39,7 @@ def main(dataset, class_num, E, data_form):
     print(s)
     for idx in range(1, E + 1):
         print(f'################### {idx}/{E} ###################')
-        repr_probility = np.loadtxt('./data/' + dataset + f'/' + s + f'/model/k{class_num}.{idx}.pz_d')[
-                         :len(gold_labels)]
+        repr_probility = np.loadtxt('./data/' + dataset + f'/' + s + f'/model/k{class_num}.{idx}.pz_d')[:len(gold_labels)]
         # ACC
         true_num, repr_prediction = 0, np.argmax(repr_probility, axis=1)
         for i in range(len(gold_labels)):
@@ -118,6 +82,7 @@ def main(dataset, class_num, E, data_form):
             print('micro f1', f1_score(true_labels, pre_labels, average='micro'))
             print('macro f1', f1_score(true_labels, pre_labels, average='macro'))
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default='profession')
@@ -125,9 +90,9 @@ if __name__ == '__main__':
     parser.add_argument("--E", type=int, default=2)  # E in paper
     parser.add_argument("--data-form", type=str, default=None)
     parser.add_argument("--screen", action='store_true')
-    parser.add_argument("--num_keywords", type=int, default=60) # how many keywords in one doc
+    parser.add_argument("--num_keywords", type=int, default=60)  # how many keywords in one doc
     parser.add_argument("--niter", type=int, default=50)
     args = parser.parse_args()
 
-    # print(vars(args))
+    print(vars(args))
     main(args.dataset, args.class_num, args.E, args.data_form)

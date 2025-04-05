@@ -4,11 +4,11 @@ model=llama31-Instruct-4bit        # LLM model
 K=50                               # S the number of selected words used by the LLM to synthesize texts
 gen_len=512                        # L the length of texts synthesized by the LLM
 part_of_dataset=0.33               # Synthesized quantity: the ratio of the number of synthesized texts to that of the original dataset
-aaai_num=8                         # best BTM iterate times
+aaai_num=4                         # best BTM iterate times
 num_keywords=60                    # K the number of keywords for each utterance
 niter=50                           # T the number of iterations for the Gibbs sampling process
 
-echo "using ${dataset} data set..."
+echo "Using ${dataset} data set..."
 CUDA_VISIBLE_DEVICES=${gpu} bash PEARL/script/run.sh ${dataset} ${num_keywords} ${niter}
 
 start=$(date +%s)

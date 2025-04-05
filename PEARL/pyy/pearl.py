@@ -2,18 +2,12 @@ import argparse
 import json
 import os
 import re
-import string
-import sys
 import math
 import operator
 import itertools
 import torch
 import string
-import nltk
-import pickle
 import numpy as np
-import pickle as pk
-
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 from tqdm import tqdm
@@ -56,70 +50,59 @@ def check(text):
     return True
 
 
-def clean_str(str):
-    str = str.replace('.','')   # old, new
+def clean_str(text):
+    text = text.replace('.', '')  # old, new
 
-    ## clean html1
+    # clean html1
     clean_links, left_mark, right_mark = [], '&lt;', '&gt;'
     # for every line find matching left_mark and nearest right_mark
     while True:
-        next_left_start = str.find(left_mark)
+        next_left_start = text.find(left_mark)
         if next_left_start == -1:
             break
-        next_right_start = str.find(right_mark, next_left_start)
+        next_right_start = text.find(right_mark, next_left_start)
         if next_right_start == -1:
-            print("Right mark without Left: " + str)
+            print("Right mark without Left: " + text)
             break
         # print("Removing " + string[next_left_start: next_right_start + len(right_mark)])
-        clean_links.append(str[next_left_start: next_right_start + len(right_mark)])
-        str = str[:next_left_start] + " " + str[next_right_start + len(right_mark):]
+        clean_links.append(text[next_left_start: next_right_start + len(right_mark)])
+        text = text[:next_left_start] + " " + text[next_right_start + len(right_mark):]
     # print(f"Cleaned {len(clean_links)} html links")
 
     # clean html2
     pattern = re.compile(r'<[^>]+>', re.S)
-    str = pattern.sub(' ', str)
+    text = pattern.sub(' ', text)
 
-    str = " ".join([s for s in str.split(' ') if "@" not in s])     # clean email, mainly for 20news
-    str = re.sub(r"[^A-Za-z0-9(),\(\)=+.!?\"\']", " ", str)
-    str = re.sub(r"\s{2,}", " ", str)
+    text = " ".join([s for s in text.split(' ') if "@" not in s])  # clean email, mainly for 20news
+    text = re.sub(r"[^A-Za-z0-9(),\(\)=+.!?\"\']", " ", text)
+    text = re.sub(r"\s{2,}", " ", text)
 
-    return str.strip()
+    return text.strip()
+
 
 def has_repeated_words(s, threshold):
     words = s.split()
     counts = Counter(words)
-    return any(count for word, count in counts.items() if count/len(words) > threshold)
+    return any(count for word, count in counts.items() if count / len(words) > threshold)
 
-def load(tokenizer, dataset_dir, dataset_name, lm_type='bbu'):
-    '''
-    Args:
-        dataset_dir: ../../data/datasets/profession
-    Returns:
-        cleaned_docs: list, each element is a cleaned doc in str
-        class_names: list , each element is an attribute value in str
-    '''
+
+def load(dataset_dir, dataset_name, lm_type='bbu'):
     docs_from = []
     cleaned_docs, class_names = [], []
     dataset_dir += dataset_name
-    with open(os.path.join(dataset_dir, 'dataset.txt' if args.screen else 'dataset_pearl.txt'), mode='r', encoding='utf-8') as f:
+    with open(os.path.join(dataset_dir, 'dataset.txt'), mode='r',
+              encoding='utf-8') as f:
         for raw_doc in f.readlines():
-            cleaned_docs.append(clean_str(raw_doc.strip()))     # 5747
-    docs_from.append(os.path.join(dataset_dir, 'dataset.txt' if args.screen else 'dataset_pearl.txt'))
-    # df = pickle.load(open(os.path.join(dataset_dir, 'df_gen_profession.pkl'), "rb"))
-    # for i in range(len(df)):
-    #     if check(df.iloc[i]['text']):
-    #         cleaned_docs.append(clean_str(df.iloc[i]['text'].strip()))  # 7156
+            cleaned_docs.append(clean_str(raw_doc.strip()))  # 5747
+    docs_from.append(os.path.join(dataset_dir, 'dataset.txt'))
     print(f"ori docs length: {len(cleaned_docs)}")
     if args.data_form != None:
         if 'ck' in args.data_form:
-            with open(os.path.join(dataset_dir, f'df_llama31_gen_{dataset_name}_{args.data_form}.json'), mode='r', encoding='utf-8') as f:
+            with open(os.path.join(dataset_dir, f'df_llama31_gen_{dataset_name}_{args.data_form}.json'), mode='r',
+                      encoding='utf-8') as f:
                 for i, raw_doc in enumerate(json.load(f)['text']):
                     if check(raw_doc):
                         temp = clean_str(raw_doc.strip())
-                        # if len(set(tokenizer.tokenize(temp))) < 60:
-                        #     continue
-                        # elif has_repeated_words(temp, 0.8):
-                        #     continue
                         tokens = word_tokenize(temp)
                         comma_count = sum(1 for token in tokens if ',' in token)
                         if len(temp) < 1000:
@@ -133,32 +116,27 @@ def load(tokenizer, dataset_dir, dataset_name, lm_type='bbu'):
                         cleaned_docs.append(temp)
             docs_from.append(os.path.join(dataset_dir, f'df_llama31_gen_{dataset_name}_{args.data_form}.json'))
         else:
-            with open(os.path.join(dataset_dir, f'df_keywords_gen_{dataset_name}_{args.data_form}.json'), mode='r', encoding='utf-8') as f:
+            with open(os.path.join(dataset_dir, f'df_keywords_gen_{dataset_name}_{args.data_form}.json'), mode='r',
+                      encoding='utf-8') as f:
                 for i, raw_doc in enumerate(json.load(f)['text']):
                     if check(raw_doc):
                         temp = clean_str(raw_doc.strip())
-                        # if len(set(tokenizer.tokenize(temp))) < 60:
-                        #     continue
-                        # elif has_repeated_words(temp, 0.8):
-                        #     continue
                         tokens = word_tokenize(temp)
                         comma_count = sum(1 for token in tokens if ',' in token)
                         if len(temp) < 1000:
-                            continue                        
+                            continue
                         if len(set(tokens)) < len(tokens) / 6:
                             continue
                         if comma_count > len(set(tokens)) / 3:
                             continue
                         cleaned_docs.append(temp)
-                # cleaned_docs.extend(json.load(f)['text'])
             docs_from.append(os.path.join(dataset_dir, f'df_keywords_gen_{dataset_name}_{args.data_form}.json'))
     with open(os.path.join(dataset_dir, 'classes.txt'), mode='r', encoding='utf-8') as f:
         class_names = "".join(f.readlines()).strip().split("\n")
-        # class_words = " ".join(class_names).split()
 
     for doc_from in docs_from:
         print(f'docs_from: {doc_from}')
-    if lm_type == 'bbu':   # bert-base-uncased
+    if lm_type == 'bbu':  # bert-base-uncased
         cleaned_docs = [x.lower() for x in cleaned_docs]
         class_names = [x.lower() for x in class_names]
 
@@ -167,20 +145,19 @@ def load(tokenizer, dataset_dir, dataset_name, lm_type='bbu'):
 
 def prepare_doc(tokenizer, text):
     # define some parameters
-    max_tokens = tokenizer.model_max_length - 2     # BERT max input length 512 - 2
-    sliding_window_size = max_tokens // 2   # keep semantic
+    max_tokens = tokenizer.model_max_length - 2  # BERT max input length 512 - 2
+    sliding_window_size = max_tokens // 2  # keep semantic
     tokenized_to_id_indicies, tokenids_chunks, tokenids_chunk = [], [], []
 
     # first basic , second wordpiece
     tokenized_text = tokenizer.basic_tokenizer.tokenize(text, never_split=tokenizer.all_special_tokens)
     # print(tokenized_text)
-    for index, token in enumerate(tokenized_text + [None]): # + <-> extend
+    for index, token in enumerate(tokenized_text + [None]):  # + <-> extend
         tokens = None
         if token is not None:
             # wordpiece_tokenizer after basic_tokenizer
             tokens = tokenizer.wordpiece_tokenizer.tokenize(token)  # doing -> do + ##ing
             # print(tokens)
-        # if this document is over / current chunk length > 512
         if token is None or len(tokenids_chunk) + len(tokens) > max_tokens:
             tokenids_chunks.append([tokenizer.vocab['[CLS]']] + tokenids_chunk + [tokenizer.vocab['[SEP]']])
             # new chunk
@@ -191,7 +168,7 @@ def prepare_doc(tokenizer, text):
         if token is not None:
             # on basic token is split into many wordpiece tokens
             # (chunks idx, start idx in chunk, end idx in chunk)
-            tokenized_to_id_indicies.append((len(tokenids_chunks),len(tokenids_chunk),
+            tokenized_to_id_indicies.append((len(tokenids_chunks), len(tokenids_chunk),
                                              len(tokenids_chunk) + len(tokens)))
             # corresponding wordpiece tokens
             tokenids_chunk.extend(tokenizer.convert_tokens_to_ids(tokens))
@@ -225,7 +202,7 @@ def tf_idf(docs):
         word_idf[word] = math.log(doc_num / (word_doc[word] + 1))
         word_tf_idf[word] = word_tf[word] * word_idf[word]
 
-    sorted_words = sorted(word_tf_idf.items(), key=operator.itemgetter(1), reverse=True)   # list
+    sorted_words = sorted(word_tf_idf.items(), key=operator.itemgetter(1), reverse=True)  # list
     return [item[0] for item in sorted_words]
 
 
@@ -276,7 +253,7 @@ def sentence_encode(tokens_id, model, layer):
     input_ids = torch.tensor([tokens_id], device=model.device)  # torch.Size([1, 354])
     with torch.no_grad():
         hidden_states = model(input_ids)
-    all_layer_outputs = hidden_states[2]   # tuple, 12 elements, each elements [1, 354, 768]
+    all_layer_outputs = hidden_states[2]  # tuple, 12 elements, each elements [1, 354, 768]
     # squeeze(0) [1, 354, 768] -> [354, 768]
     # [1:-1] -> delete [CLS]/[SEP]
     layer_embedding = tensor_to_numpy(all_layer_outputs[layer].squeeze(0))[1: -1]
@@ -325,7 +302,7 @@ def process(model, layer, tokenization_info, occur_words, tf_idf_words, class_na
         class_with_id: [[id,id],[id],...] class name in id format
     '''
 
-    class_words = set(' '.join(class_names).split())    # all words in class_names
+    class_words = set(' '.join(class_names).split())  # all words in class_names
     word2id, static_word_emb, word_count = {}, defaultdict(int), defaultdict(int)
     docs_with_id, docs_with_emb = [], []
 
@@ -352,7 +329,7 @@ def process(model, layer, tokenization_info, occur_words, tf_idf_words, class_na
     # get static_word_emb
     for id in static_word_emb.keys():
         static_word_emb[id] = static_word_emb[id] / word_count[id]
-    static_word_emb = np.array([emb for id, emb in sorted(static_word_emb.items(), key=lambda d:d[0])])
+    static_word_emb = np.array([emb for id, emb in sorted(static_word_emb.items(), key=lambda d: d[0])])
 
     # get static_class_emb
     static_class_emb = np.zeros((len(class_names), static_word_emb.shape[1]))
@@ -364,11 +341,10 @@ def process(model, layer, tokenization_info, occur_words, tf_idf_words, class_na
         static_class_emb[i] /= len(words)
 
     # get class_with_id
-    class_with_id = [list(map(lambda x:word2id[x], class_name.split())) for class_name in class_names]
+    class_with_id = [list(map(lambda x: word2id[x], class_name.split())) for class_name in class_names]
 
     # get id2word
-    id2word = [word for word, id in sorted(word2id.items(), key=lambda d:d[1])]
-
+    id2word = [word for word, id in sorted(word2id.items(), key=lambda d: d[1])]
     return id2word, docs_with_id, docs_with_emb, static_word_emb, static_class_emb, class_with_id
 
 
@@ -400,7 +376,7 @@ def word_class_sim(class_emb, word_emb):
     # cos_sim = numerator / denominator
     # ranked_wid_to_class = np.argsort(-cos_sim, axis=1)
 
-    cos_sim= np.zeros((class_emb.shape[0], word_emb.shape[0]))
+    cos_sim = np.zeros((class_emb.shape[0], word_emb.shape[0]))
     for i, class_emb_row in enumerate(class_emb):
         numerator = np.sum(class_emb_row * word_emb, axis=1)
         denominator = np.linalg.norm(class_emb_row) * np.linalg.norm(word_emb, axis=1)
@@ -453,10 +429,6 @@ def get_class_emb(static_word_emb, static_class_emb, class_with_id, len_word_lis
                 if (gjq * 2 - len(set(class_with_id[i] + list(cur_ranked_wid_to_class[i][:gjq])))) / gjq < eta:
                     finished_class[i] = True
 
-    # for cls_name, x in zip(class_names, class_with_id):
-        # print(cls_name, len(x), [id2word[id] for id in x])
-    # sys.exit(1)
-
     return class_emb
 
 
@@ -480,7 +452,7 @@ def choose_k_words(docs_with_id, docs_with_emb, class_emb, key_num, fd, id2word)
     # for each document
     for i, doc_with_emb in enumerate(tqdm(docs_with_emb, desc="choose K words")):
         # compute \pi_{i,j} in formula 8
-        tri_dim_word_emb = np.stack([doc_with_emb] * class_emb.shape[0], axis=1) # (word_num,class num,768)
+        tri_dim_word_emb = np.stack([doc_with_emb] * class_emb.shape[0], axis=1)  # (word_num,class num,768)
         gjq = 1 / np.power(1 + np.sum(np.square(tri_dim_word_emb - class_emb), axis=2) / fd, (fd + 1) / 2)
         doc_weights = np.max(gjq, axis=1) / np.sum(gjq, axis=1)
 
@@ -516,10 +488,6 @@ def get_save_new_vocab(docs_with_id, id2word, dataset_dir):
         new_docs_with_id.append(new_doc_with_id)
 
     # save new_docs_with_id and new_id2word
-    # if args.data_form is None:
-    #     s = 'info'
-    # else:
-    #     s = 'info_' + args.data_form
     if args.data_form is None:
         s = f'info_{args.niter}_{args.num_keywords}'
     else:
@@ -531,7 +499,7 @@ def get_save_new_vocab(docs_with_id, id2word, dataset_dir):
             f.write(' '.join(map(str, doc)) + '\n')
 
     with open(os.path.join(save_dir, "voca.txt"), "w", encoding="utf-8") as f:
-        for word, id in sorted(new_word2id.items(), key=lambda d:d[1]):
+        for word, id in sorted(new_word2id.items(), key=lambda d: d[1]):
             f.write(str(id) + '\t' + word + '\n')
 
 
@@ -544,11 +512,6 @@ def init_cos_sim_mat(docs_with_emb, weights, class_emb, dataset_dir):
     Returns:
         generate one cos_sim_mat for one document
     '''
-
-    # if args.data_form is None:
-    #     s = 'info'
-    # else:
-    #     s = 'info_' + args.data_form
     if args.data_form is None:
         s = f'info_{args.niter}_{args.num_keywords}'
     else:
@@ -560,10 +523,9 @@ def init_cos_sim_mat(docs_with_emb, weights, class_emb, dataset_dir):
         for doc_id, doc_with_emb in enumerate(tqdm(docs_with_emb, desc="init cos_sim mat")):
             # iterate all biterms in current document
             for id1, id2 in itertools.combinations(list(range(doc_with_emb.shape[0])), 2):
-                biterm_emb = np.average(doc_with_emb[[id1,id2],:], weights=weights[doc_id][[id1,id2]], axis=0)
+                biterm_emb = np.average(doc_with_emb[[id1, id2], :], weights=weights[doc_id][[id1, id2]], axis=0)
                 numerator = np.sum(class_emb * biterm_emb, axis=1)
                 denominator = np.linalg.norm(biterm_emb) * np.linalg.norm(class_emb, axis=1)
-                # biterm_cos = soft_max(numerator / denominator)  # softmax
                 biterm_cos = numerator / denominator
                 f.write(" ".join(map(str, biterm_cos)) + '\n')
 
@@ -573,7 +535,7 @@ def main(args):
     model_class, tokenizer_class, pretrained_weights = MODELS[args.lm_type]
     tokenizer = tokenizer_class.from_pretrained(pretrained_weights)
     #### read data
-    docs, class_names = load(tokenizer, args.datasets_dir, args.dataset_name, args.lm_type)
+    docs, class_names = load(args.datasets_dir, args.dataset_name, args.lm_type)
     # print(len(docs[18223]))
     print(f"{args.dataset_name}: {len(docs)} docs, {len(class_names)} classes")
     # print(tokenizer.vocab['[CLS]'])
@@ -584,57 +546,33 @@ def main(args):
 
     #### process docs and get many things
     tokenization_info, occur_words, tf_idf_words = preprocess_docs(tokenizer, docs, args.vocab_min_occur)
-    id2word, docs_with_id, docs_with_emb, static_word_emb, static_class_emb, class_with_id = process(model,
-                                                                                             args.layer,
-                                                                                             tokenization_info,
-                                                                                             occur_words,
-                                                                                             tf_idf_words,
-                                                                                             class_names)
-    # print(class_with_id)
-
-    #### get class_emb (V_{c_q] in paper) / choose K words for each document / get new vocabulary
-    class_emb = get_class_emb(static_word_emb, static_class_emb, class_with_id, args.len_word_list, args.eta, class_names, id2word)
-
-    # with open("./data.pk", "rb") as f:
-    #     dataset = pk.load(f)
-    #     docs_with_id = dataset["docs_with_id"]
-    #     docs_with_emb = dataset["docs_with_emb"]
-    #     class_emb = dataset["class_emb"]
-    #     id2word = dataset["id2word"]
-
-    docs_with_id, docs_with_emb, weights = choose_k_words(docs_with_id, docs_with_emb, class_emb,
-                                           args.num_keywords, args.freedom_degree, id2word)
+    id2word, docs_with_id, docs_with_emb, static_word_emb, static_class_emb, class_with_id = process(model, args.layer,
+                                                                                                     tokenization_info,
+                                                                                                     occur_words,
+                                                                                                     tf_idf_words,
+                                                                                                     class_names)
+    # get class_emb (V_{c_q] in paper) / choose K words for each document / get new vocabulary
+    class_emb = get_class_emb(static_word_emb, static_class_emb, class_with_id, args.len_word_list, args.eta,
+                              class_names, id2word)
+    docs_with_id, docs_with_emb, weights = choose_k_words(docs_with_id, docs_with_emb, class_emb, args.num_keywords,
+                                                          args.freedom_degree, id2word)
     # must recode vocabulary, because btm p(w|z) use
     get_save_new_vocab(docs_with_id, id2word, args.datasets_dir + args.dataset_name)
-
-    # with open("./data1.pk", "wb") as f:
-    #     pk.dump({
-    #         "docs_with_emb": docs_with_emb,
-    #         "class_emb": class_emb,
-    #         "weights": weights
-    #     }, f, protocol=4)
-
-    # with open("./data1.pk", "rb") as f:
-    #     dataset = pk.load(f)
-    #     docs_with_emb = dataset["docs_with_emb"]
-    #     class_emb = dataset["class_emb"]
-    #     weights = dataset["weights"]
-
-    #### init and save cos sim matrix
+    # init and save cos sim matrix
     init_cos_sim_mat(docs_with_emb, weights, class_emb, args.datasets_dir + args.dataset_name)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--datasets-dir", type=str, default='./data/')
-    parser.add_argument("--dataset-name", type=str, default='20News')   # required=True
+    parser.add_argument("--dataset-name", type=str, default='20News')  # required=True
     parser.add_argument("--lm-type", type=str, default='bbu')
     parser.add_argument("--layer", type=int, default=12)
-    parser.add_argument("--vocab-min-occur", type=int, default=2)     # min occur times of each word
+    parser.add_argument("--vocab-min-occur", type=int, default=2)  # min occur times of each word
     parser.add_argument("--eta", type=float, default=0.75)  # threshold in word list
-    parser.add_argument("--len-word-list", type=tuple, default=(11, 41))    # word list length
-    parser.add_argument("--num-keywords", type=int, default=60) # how many keywords in one doc
-    parser.add_argument("--freedom-degree", type=int, default=1)   # lambda in paper
+    parser.add_argument("--len-word-list", type=tuple, default=(11, 41))  # word list length
+    parser.add_argument("--num-keywords", type=int, default=60)  # how many keywords in one doc
+    parser.add_argument("--freedom-degree", type=int, default=1)  # lambda in paper
     parser.add_argument("--use-gpu", type=bool, default=True)
     parser.add_argument("--data-form", type=str, default=None)
     parser.add_argument("--screen", action='store_true')
